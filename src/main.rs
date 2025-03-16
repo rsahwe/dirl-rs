@@ -1,7 +1,7 @@
 use std::{path::PathBuf, usize};
 
 use clap::{CommandFactory, Parser};
-use glob::{glob, Paths};
+use glob::glob;
 
 /// A program to mimic the `dir' windows command
 #[derive(Parser, Debug)]
@@ -29,7 +29,7 @@ struct Args {
     #[arg(short, long)]
     all: bool,
     /// Set recursive depth, 1 no recursive, 2 goes one level deeper etc...
-    #[arg(short, long)]
+    #[arg(short, long, conflicts_with = "recursive")]
     depth: Option<usize>,
 }
 
@@ -69,18 +69,17 @@ fn main() {
     }
 
     let path_os = PathBuf::from(args.path.clone());
-    let full = path_os.join(file_os.clone());
 
-    if !args.recursive {
-        match glob(full.to_str().unwrap()) {
-            Ok(paths) => dir_cmd(&args, paths, directories_only),
-            Err(_) => arg_error("file".to_string(), args.file),
-        }
-    } else {
-        let stats = dir_cmd_recursive(&args, path_os, &file_os, directories_only, args.depth.unwrap_or(usize::MAX));
-        if !args.bare {
-            print_end_stats(stats.0, stats.1, stats.2);
-        }
+    let mut depth = 1;
+    if args.recursive {
+        depth = usize::MAX;
+    } else if let Some(d) = args.depth {
+        depth = d;
+    }
+
+    let stats = dir_cmd_recursive(&args, path_os, &file_os, directories_only, depth);
+    if !args.bare {
+        print_end_stats(stats.0, stats.1, stats.2);
     }
 }
 
@@ -89,41 +88,6 @@ fn arg_error(arg: String, value: String) -> ! {
     err.insert(clap::error::ContextKind::InvalidArg, clap::error::ContextValue::String(arg));
     err.insert(clap::error::ContextKind::InvalidValue, clap::error::ContextValue::String(value));
     err.exit();
-}
-
-fn dir_cmd(args: &Args, paths: Paths, directories_only: bool) {
-    let mut files = 0;
-    let mut file_size_sum = 0;
-    let mut directories = 0;
-
-    for path in paths.filter_map(|p| match p { Ok(p) => Some(p), Err(_) => None }) {
-        let name = match path.file_name() {
-            Some(name) => name,
-            None => continue,
-        };
-        if !args.all && name.as_encoded_bytes()[0] == b'.' {
-            continue;
-        }
-
-
-        if path.is_file() && !directories_only {
-            files += 1;
-            let file_size = path.metadata().unwrap().len() as usize;
-            file_size_sum += file_size;
-            if !args.quiet {
-                println!("<FILE>\t{}\t{} bytes", path.canonicalize().unwrap().display(), file_size);
-            }
-        } else if path.is_dir() {
-            directories += 1;
-            if !args.quiet {
-                println!("<DIR>\t{}", path.canonicalize().unwrap().display());
-            }
-        }
-    }
-
-    if !args.bare {
-        print_end_stats(files, file_size_sum, directories);
-    }
 }
 
 fn dir_cmd_recursive(args: &Args, current_path: PathBuf, file_pattern: &PathBuf, directories_only: bool, depth: usize) -> (usize, usize, usize) {

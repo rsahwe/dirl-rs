@@ -1,9 +1,12 @@
 [package]
 name = "dirl"
-version = "0.3.1"
+description = "Replacement for the `dir' windows command"
+version = "0.4.0"
+license = "MIT"
 authors = [
     "rsahwe <rsahwe@gmx.net>",
 ]
+resolver = "3"
 edition = "2024"
 repository = "https://github.com/rsahwe/dirl-rs"
 

@@ -31,6 +31,9 @@ struct Args {
     /// Set recursive depth, 1 no recursive, 2 goes one level deeper etc...
     #[arg(short, long, conflicts_with = "recursive")]
     depth: Option<usize>,
+    /// No color output
+    #[arg(short, long)]
+    raw: bool,
 }
 
 fn main() {
@@ -119,12 +122,20 @@ fn dir_cmd_recursive(args: &Args, current_path: PathBuf, file_pattern: &PathBuf,
             let file_size = path.metadata().unwrap().len() as usize;
             file_size_sum += file_size;
             if !args.quiet {
-                println!("<FILE>\t{}\t{} bytes", path.canonicalize().unwrap().display(), file_size);
+                if args.raw {
+                    println!("<FILE>\t{}\t{} bytes", path.canonicalize().unwrap().display(), file_size);
+                } else {
+                    println!("\x1b[1;32m<FILE>\x1b[0m\t{}\t{} bytes", path.canonicalize().unwrap().display(), file_size);
+                }
             }
         } else if path.is_dir() {
             directories += 1;
             if !args.quiet {
-                println!("<DIR>\t{}", path.canonicalize().unwrap().display());
+                if args.raw {
+                    println!("<DIR>\t{}", path.canonicalize().unwrap().display());
+                } else {
+                    println!("\x1b[1;35m<DIR>\x1b[0m\t{}", path.canonicalize().unwrap().display());
+                }
             }
         }
     }

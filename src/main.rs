@@ -170,7 +170,7 @@ fn dir_cmd_recursive(args: &Args, current_path: PathBuf, file_pattern: &PathBuf,
     }
 
     if let Ok(read_dir) = current_path.read_dir() {
-        for path in read_dir.filter_map(Result::ok).map(|ent| ent.path()).filter(|path| path.is_dir()).filter(|path| args.all || path.file_name().unwrap().as_encoded_bytes()[0] != b'.') {
+        for path in read_dir.filter_map(Result::ok).map(|ent| ent.path()).filter(|path| path.is_dir()).filter(|path| args.all || path.file_name().unwrap().as_encoded_bytes()[0] != b'.').filter(|path| !path.is_symlink()) {
             let res = dir_cmd_recursive(args, path, file_pattern, directories_only, depth - 1);
             files += res.0;
             file_size_sum += res.1;

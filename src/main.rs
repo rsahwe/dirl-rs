@@ -47,10 +47,6 @@ fn main() {
         return;
     }
 
-    if args.file.contains('/') {
-        arg_error("file".to_string(), args.file);
-    }
-
     if !PathBuf::from(args.path.clone()).is_dir() || PathBuf::from(args.path.clone()).read_dir().is_err() {
         arg_error("path".to_string(), args.path);
     }

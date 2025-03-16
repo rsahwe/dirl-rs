@@ -13,7 +13,7 @@ struct Args {
     /// Specify the path from which the command gets executed
     #[arg(short = 'C', long = "directory", default_value = ".")]
     path: String,
-    /// Optional file pattern, may not include '/'
+    /// Optional file pattern, may include '/'
     #[arg(default_value = "*")]
     file: String,
     /// Lists every occurence of the specified file name within the specified directory and all subdirectories

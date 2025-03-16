@@ -1,7 +1,9 @@
-use std::{path::PathBuf, usize};
+use std::{path::PathBuf, sync::LazyLock, usize};
 
 use clap::{CommandFactory, Parser};
 use glob::glob;
+
+static USIZE_MAX_STR: LazyLock<String> = LazyLock::new(|| usize::MAX.to_string());
 
 /// A program to mimic the `dir' windows command
 #[derive(Parser, Debug)]
@@ -16,9 +18,9 @@ struct Args {
     /// Optional file pattern, may include '/'
     #[arg(default_value = "*")]
     file: String,
-    /// Lists every occurence of the specified file name within the specified directory and all subdirectories
-    #[arg(short = 's', long)]
-    recursive: bool,
+    /// Sets the recursive mode. 0 is the default and infinite is the default if no depth is specified.
+    #[arg(short = 's', long, default_value = "0", require_equals = true, num_args = 0..=1, default_missing_value = &USIZE_MAX_STR as &String as &str)]
+    depth: usize,
     /// Strips extra information from the output
     #[arg(short, long)]
     bare: bool,
@@ -28,9 +30,6 @@ struct Args {
     /// Display all files and directories, even ones starting with '.'
     #[arg(short, long)]
     all: bool,
-    /// Set recursive depth, 1 no recursive, 2 goes one level deeper etc...
-    #[arg(short, long, conflicts_with = "recursive")]
-    depth: Option<usize>,
     /// No color output
     #[arg(short, long)]
     raw: bool,
@@ -73,14 +72,7 @@ fn main() {
 
     let path_os = PathBuf::from(args.path.clone());
 
-    let mut depth = 1;
-    if args.recursive {
-        depth = usize::MAX;
-    } else if let Some(d) = args.depth {
-        depth = d;
-    }
-
-    let stats = dir_cmd_recursive(&args, path_os, &file_os, directories_only, depth);
+    let stats = dir_cmd_recursive(&args, path_os, &file_os, directories_only, args.depth);
     if !args.bare {
         print_end_stats(stats.0, stats.1, stats.2);
     }
@@ -94,10 +86,6 @@ fn arg_error(arg: String, value: String) -> ! {
 }
 
 fn dir_cmd_recursive(args: &Args, current_path: PathBuf, file_pattern: &PathBuf, directories_only: bool, depth: usize) -> (usize, usize, usize) {
-    if depth == 0 {
-        return (0, 0, 0);
-    }
-
     let mut files = 0;
     let mut file_size_sum = 0;
     let mut directories = 0;
@@ -140,12 +128,14 @@ fn dir_cmd_recursive(args: &Args, current_path: PathBuf, file_pattern: &PathBuf,
         }
     }
 
-    if let Ok(read_dir) = current_path.read_dir() {
-        for path in read_dir.filter_map(Result::ok).map(|ent| ent.path()).filter(|path| path.is_dir()).filter(|path| args.all || path.file_name().unwrap().as_encoded_bytes()[0] != b'.').filter(|path| !path.is_symlink()) {
-            let res = dir_cmd_recursive(args, path, file_pattern, directories_only, depth - 1);
-            files += res.0;
-            file_size_sum += res.1;
-            directories += res.2;
+    if depth != 0 {
+        if let Ok(read_dir) = current_path.read_dir() {
+            for path in read_dir.filter_map(Result::ok).map(|ent| ent.path()).filter(|path| path.is_dir()).filter(|path| args.all || path.file_name().unwrap().as_encoded_bytes()[0] != b'.').filter(|path| !path.is_symlink()) {
+                let res = dir_cmd_recursive(args, path, file_pattern, directories_only, depth - 1);
+                files += res.0;
+                file_size_sum += res.1;
+                directories += res.2;
+            }
         }
     }
 
